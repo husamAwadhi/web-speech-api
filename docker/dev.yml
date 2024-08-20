@@ -1,0 +1,57 @@
+name: webspeech-dev
+
+services:
+  python:
+    container_name: webspeech-py
+    build:
+      context: ./../api
+      dockerfile: ../docker/dev/python/Dockerfile.dev
+    command: gunicorn -c ./gunicorn.dev.conf.py cli:app
+    volumes:
+      - ../api:/home/app/web
+    expose:
+      - 5000
+    environment:
+      SECRET_KEY: "89b952c539f8d9549a93faa3e45d72380cff7a7e871383ca5dec3a2a51332da0"
+      FLASK_DEBUG: "1"
+    networks:
+      - webspeech-internal
+
+  nginx:
+    image: nginx:alpine
+    container_name: webspeech-nginx
+    restart: unless-stopped
+    ports:
+      - 80:80
+    volumes:
+      - ./../api:/app
+      - ./../docker/dev/nginx:/etc/nginx/conf.d
+    networks:
+      - webspeech-external
+      - webspeech-internal
+    depends_on:
+      - python
+
+  node:
+    image: node:lts-bullseye
+    container_name: webspeech-vite
+    environment:
+      NODE_ENV: dev
+    restart: unless-stopped
+    ports:
+      - 8000:8000
+    volumes:
+      - ./../frontend:/usr/app
+    working_dir: /usr/app
+    entrypoint: >
+      bash -c "npm install && npm run dev"
+    networks:
+      - webspeech-external
+    depends_on:
+      - python
+
+networks:
+  webspeech-internal:
+    driver: bridge
+  webspeech-external:
+    driver: bridge
